@@ -91,7 +91,7 @@ function main() {
       const targetElement = document.getElementById(htmlElementId);
       if (targetElement) targetElement.click();
     } else {
-      handleUnselectOfCurrentSelectedMesh();
+      // handleUnselectOfCurrentSelectedMesh();
     }
   }
 
@@ -133,34 +133,9 @@ function main() {
     objectEle.classList.add("object-item");
     objectEle.id = meshId;
     
-    /* Handle select mesh */
     objectEle.addEventListener("click", () => {
-      handleUnselectOfCurrentSelectedMesh();
-
-      objectEle.classList.add("object-item--selected");
-
-      /* Add transform control */
-      transformControl.attach(mesh);
-      const gizmo = transformControl.getHelper();
-      scene.add(gizmo);
-      /* ===================== */
-
-      const objectTrashEle = document.createElement("img");
-      objectTrashEle.id = `trash-${meshId}`
-      objectTrashEle.src = "./trash.svg";
-      objectTrashEle.width = 18;
-      objectTrashEle.height = 18;
-      objectEle.appendChild(objectTrashEle);
-      objectTrashEle.addEventListener("click", (e) => {
-        e.stopPropagation();
-        objectListEle.removeChild(objectEle);
-        handleRemoveMesh(mesh);
-      });
-
-      render();
+      handleSelectMesh(mesh);
     });
-    /* ===================== */
-
 
     const objectLogoEle = document.createElement("img");
     objectLogoEle.src = "./boxes.svg";
@@ -198,7 +173,9 @@ function main() {
       const gizmo = transformControl.getHelper();
       scene.remove(gizmo);
       transformControl.detach(currentSelectedObject.mesh)
+      transformControl.setMode('translate')
     }
+    removePropertiesSection();
     render();
   }
 
@@ -212,6 +189,10 @@ function main() {
     scene.remove(mesh);
     objectList = objectList.filter(item => item.id !== mesh.uuid);
     render();
+
+    handleUnselectOfCurrentSelectedMesh();
+    const objectEle = document.getElementById(mesh.uuid);
+    if (objectEle) objectEle.remove();
   }
 
   function getBoxTypeByIdEle(idEle) {
@@ -227,6 +208,95 @@ function main() {
       default:
         return BOX_TYPES.CUBE;
     }
+  }
+
+  function handleSelectMesh(mesh) {
+    if (!mesh) return;
+
+    const currentSelectedObjectEle = document.querySelector(
+      ".object-item--selected"
+    );
+    if (currentSelectedObjectEle && currentSelectedObjectEle.id === mesh.uuid) return;
+    handleUnselectOfCurrentSelectedMesh();
+
+    const objectEle = document.getElementById(mesh.uuid);
+    objectEle.classList.add("object-item--selected");
+
+    /* Add transform control */
+    transformControl.attach(mesh);
+    const gizmo = transformControl.getHelper();
+    scene.add(gizmo);
+    /* ===================== */
+
+    const objectTrashEle = document.createElement("img");
+    objectTrashEle.id = `trash-${mesh.uuid}`
+    objectTrashEle.src = "./trash.svg";
+    objectTrashEle.width = 18;
+    objectTrashEle.height = 18;
+    objectEle.appendChild(objectTrashEle);
+    objectTrashEle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      handleRemoveMesh(mesh);
+    });
+
+    render();
+
+    renderPropertiesSection(mesh)
+  }
+
+  function renderPropertiesSection(mesh) {
+    const objectPropertiesEle = document.querySelector('.object-properties')
+
+    /* Transform property */
+    const transformPropertyEle = document.createElement('div');
+    transformPropertyEle.classList.add('object-property');
+    const moveEle = document.createElement('div');
+    moveEle.classList.add('transform-icon');
+    moveEle.classList.add('transform-icon--selected');
+    const moveIcon = document.createElement('img');
+    moveIcon.src = './move.svg';
+    moveEle.appendChild(moveIcon);
+    moveEle.addEventListener('click', () => {
+      const currentSelectedModeEle = document.querySelector('.transform-icon--selected')
+      currentSelectedModeEle.classList.remove('transform-icon--selected')
+      moveEle.classList.add('transform-icon--selected');
+      transformControl.setMode('translate');
+    });
+    transformPropertyEle.appendChild(moveEle)
+
+    const rotateEle = document.createElement('div');
+    rotateEle.classList.add('transform-icon');
+    const rotateIcon = document.createElement('img');
+    rotateIcon.src = './rotate.svg';
+    rotateEle.appendChild(rotateIcon);
+    rotateEle.addEventListener('click', () => {
+      const currentSelectedModeEle = document.querySelector('.transform-icon--selected')
+      currentSelectedModeEle.classList.remove('transform-icon--selected')
+      rotateEle.classList.add('transform-icon--selected');
+      transformControl.setMode('rotate');
+    });
+    transformPropertyEle.appendChild(rotateEle)
+
+    const scaleEle = document.createElement('div');
+    scaleEle.classList.add('transform-icon');
+    const scaleIcon = document.createElement('img');
+    scaleIcon.src = './scale.svg';
+    scaleEle.appendChild(scaleIcon);
+    scaleEle.addEventListener('click', () => {
+      const currentSelectedModeEle = document.querySelector('.transform-icon--selected')
+      currentSelectedModeEle.classList.remove('transform-icon--selected')
+      scaleEle.classList.add('transform-icon--selected');
+      transformControl.setMode('scale');
+    });
+    transformPropertyEle.appendChild(scaleEle)
+
+    objectPropertiesEle.appendChild(transformPropertyEle);
+    /* ===================== */
+  }
+
+  function removePropertiesSection() {
+    const objectPropertiesEle = document.querySelector('.object-properties')
+    objectPropertiesEle.innerHTML = '';
   }
 }
 
