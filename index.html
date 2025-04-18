@@ -4,12 +4,32 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
     <title>My first three.js app</title>
-    <style>
-      body { margin: 0; }
-      canvas { width: 100%; height: 100% }
-    </style>
+    <link rel="stylesheet" href="styles.css">
   </head>
   <body>
+    <div class="editor-container">
+      <div class="editor-container__header">
+        <div class="box-icon" id="add-new-cube"><img src="./cube.svg" /></div>
+        <div class="box-icon" id="add-new-sphere"><img src="./circle.svg" /></div>
+        <div class="box-icon" id="add-new-cone"><img src="./triangle.svg" /></div>
+        <div class="box-icon" id="add-new-cylinder"><img src="./cylinder.svg" /></div>
+        <div class="header__divider"></div>
+        <div class="box-icon"><img src="./sun.svg" /></div>
+        <div class="header__divider"></div>
+        <div class="box-icon"><img src="./download.svg" /></div>
+      </div>
+      <div class="editor-container__content">
+        <div class="scene-hierarchy">
+          <h2>Scene Hierarchy</h2>
+          <div class="object-list"></div>
+        </div>
+        <div id="renderer"></div>
+        <div class="properties">
+          <h2>Properties</h2>
+        </div>
+      </div>
+    </div>
+
     <script type="module" src="/main.js"></script>
   </body>
 </html>
