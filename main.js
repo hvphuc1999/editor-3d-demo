@@ -8,8 +8,9 @@ function main() {
   const rendererEle = document.getElementById("renderer");
   const rendererWidth = rendererEle.offsetWidth;
   const rendererHeight = rendererEle.offsetHeight;
-  let scene, camera, orbitControl, transformControl, raycaster, mouse;
+  let scene, camera, orbitControl, transformControl, raycaster, mouse, directionalLight;
   let objectList = [];
+  let isLightOn = false;
 
   init();
   render();
@@ -23,16 +24,43 @@ function main() {
     });
   });
 
+  const lightEle = document.getElementById("light");
+  lightEle.addEventListener("click", () => {
+    if (!isLightOn) {
+      handleTurnOnLight();
+    } else {
+      handleTurnOffLight();
+    }
+  });
+
   function init() {
     renderer = new THREE.WebGLRenderer();
     renderer.setSize(rendererWidth, rendererHeight);
     document.getElementById("renderer").appendChild(renderer.domElement);
 
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
     scene = new THREE.Scene();
-    scene.add(new THREE.GridHelper(10, 20, 0x888888, 0x444444));
+    scene.background = new THREE.Color(0xeeeeff);
+    scene.add(new THREE.GridHelper(30, 30, 0x888888, 0xcccccc));
+
+    const planeGeometry = new THREE.PlaneGeometry(30, 30);
+    const planeMaterial = new THREE.MeshStandardMaterial({
+        color: 0xcccccc,
+        side: THREE.DoubleSide
+    });
+    const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+    plane.rotation.x = -Math.PI / 2;
+    plane.position.y = 0;
+    plane.receiveShadow = true;
+    scene.add(plane);
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
 
     camera = new THREE.PerspectiveCamera(
-      75,
+      60,
       rendererWidth / rendererHeight,
       0.1,
       1000
@@ -122,8 +150,21 @@ function main() {
       default:
         geometry = new THREE.BoxGeometry(defaultSize, defaultSize, defaultSize);
     }
-    const material = new THREE.MeshBasicMaterial({ color: Math.random() * 0xffffff });
+    const material = new THREE.MeshStandardMaterial({
+      color: Math.random() * 0xffffff,
+      roughness: 0.7,
+      metalness: 0.1
+  });
     const mesh = new THREE.Mesh(geometry, material);
+    mesh.castShadow = true;
+    const geomParams = geometry.parameters || {};
+    let halfHeight = defaultSize / 2;
+    if (geomParams.height) {
+        halfHeight = geomParams.height / 2;
+    } else if (geomParams.radius) {
+        halfHeight = geomParams.radius;
+    }
+    mesh.position.y = halfHeight; 
     scene.add(mesh);
     /* ===================== */
 
@@ -432,6 +473,33 @@ function main() {
     }
     listChangeId.forEach(handleChangeAxis);
     render()
+  }
+
+  function handleTurnOnLight() {
+    isLightOn = true;
+    if (!directionalLight) {
+      directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      directionalLight.position.set(10, 15, 10);
+      directionalLight.castShadow = true;
+  
+      directionalLight.shadow.mapSize.width = 1024;
+      directionalLight.shadow.mapSize.height = 1024;
+      directionalLight.shadow.camera.near = 0.5;
+      directionalLight.shadow.camera.far = 50;
+    }
+    const lightImg = document.getElementById('light-img');
+    lightImg.src = './light-on.svg';
+    scene.add(directionalLight);
+    render();
+  }
+
+  function handleTurnOffLight() {
+    isLightOn = false;
+    if (!directionalLight) return;
+    const lightImg = document.getElementById('light-img');
+    lightImg.src = './light-off.svg';
+    scene.remove(directionalLight);
+    render();
   }
 }
 
