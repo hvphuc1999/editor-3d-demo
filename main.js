@@ -348,6 +348,29 @@ function main() {
     }
     transformTypeByAxisList.forEach(renderTransformByAxisProperty);
     /* ===================== */
+
+    /* Color property */
+    const colorContainer = document.createElement('div');
+    colorContainer.classList.add('object-property');
+    colorContainer.style = "display: flex; align-items: center; column-gap: 1rem;"
+    const colorLabel = document.createElement('label');
+    colorLabel.style = 'font-size: 1.25rem;'
+    colorLabel.textContent = 'Color:';
+    colorContainer.appendChild(colorLabel);
+
+    const colorInput = document.createElement('input');
+    colorInput.type = 'color';
+    colorInput.id = 'meshColorPicker';
+    colorInput.value = `#${mesh.material.color.getHexString()}`;
+    colorInput.addEventListener('input', (event) => {
+        if (mesh.material && mesh.material.color) {
+            mesh.material.color.set(event.target.value);
+            render();
+        }
+    });
+    colorContainer.appendChild(colorInput);
+    objectPropertiesEle.appendChild(colorContainer); // Add color picker container
+    /* ===================== */
   }
 
   function removePropertiesSection() {
