@@ -157,6 +157,7 @@ function main() {
       metalness: 0.1
   });
     const mesh = new THREE.Mesh(geometry, material);
+    mesh.name = `${type}-${mesh.uuid.substring(0, 6)}`;
     mesh.castShadow = true;
     const geomParams = geometry.parameters || {};
     let halfHeight = defaultSize / 2;
@@ -170,46 +171,13 @@ function main() {
     /* ===================== */
 
 
-    /* Create Object Item Element in DOM */
-    const meshId = mesh.uuid;
-    const objectListEle = document.querySelector(".object-list");
-    const objectEle = document.createElement("div");
-    objectEle.classList.add("object-item");
-    objectEle.id = meshId;
-    
-    objectEle.addEventListener("click", () => {
-      handleSelectMesh(mesh);
-    });
-
-    const objectLogoEle = document.createElement("img");
-    objectLogoEle.src = "./boxes.svg";
-    objectLogoEle.width = 18;
-    objectLogoEle.height = 18;
-    objectEle.appendChild(objectLogoEle);
-
-    const objectTitleEle = document.createElement("div");
-    objectTitleEle.classList.add("object-item__title");
-    objectTitleEle.textContent = `${type}-${meshId}`;
-    objectEle.appendChild(objectTitleEle);
-
-    const objectTrashEle = document.createElement("img");
-    objectTrashEle.id = `trash-${mesh.uuid}`
-    objectTrashEle.src = "./trash.svg";
-    objectTrashEle.width = 18;
-    objectTrashEle.height = 18;
-    objectTrashEle.style = "visibility: hidden";
-    objectEle.appendChild(objectTrashEle);
-    objectTrashEle.addEventListener("click", (e) => {
-      e.stopPropagation();
-      handleRemoveMesh(mesh);
-    });
-
-    objectListEle.appendChild(objectEle);
-    objectList.push({
-      id: meshId,
-      mesh,
-    })
+    /* Add to internal list and UI list using helpers */
+    addObjectToInternalList(mesh);
+    addObjectToUIList(mesh);
     /* ===================== */
+
+    // Select the newly created mesh
+    handleSelectMesh(mesh);
 
     render();
 
@@ -224,6 +192,8 @@ function main() {
     currentSelectedObjectEle.classList.remove("object-item--selected");
     const trash = document.getElementById(`trash-${currentSelectedObjectEle.id}`);
     if (trash) trash.style = 'visibility: hidden';
+    const copy = document.getElementById(`copy-${currentSelectedObjectEle.id}`);
+    if (copy) copy.style = 'visibility: hidden';
     const currentSelectedObject = objectList.find(item => item.id === currentSelectedObjectEle.id);
     if (currentSelectedObject) {
       const gizmo = transformControl.getHelper();
@@ -286,6 +256,9 @@ function main() {
 
     const objectTrashEle = document.getElementById(`trash-${mesh.uuid}`);
     if (objectTrashEle) objectTrashEle.style = "display: block"
+
+    const objectCopyEle = document.getElementById(`copy-${mesh.uuid}`);
+    if (objectCopyEle) objectCopyEle.style = "display: block"
 
     render();
 
@@ -586,6 +559,105 @@ function main() {
     );
   }
   // --- End Export Function ---
+
+  // --- Helper Function to add item to the UI list ---
+  function addObjectToUIList(mesh) {
+    const meshId = mesh.uuid;
+    const objectListEle = document.querySelector(".object-list");
+    const objectEle = document.createElement("div");
+    objectEle.classList.add("object-item");
+    objectEle.id = meshId;
+
+    objectEle.addEventListener("click", () => {
+      if (!objectEle.classList.contains('object-item--selected')) {
+          handleSelectMesh(mesh);
+      }
+    });
+
+    const objectLogoEle = document.createElement("img");
+    objectLogoEle.src = "./boxes.svg";
+    objectLogoEle.width = 18;
+    objectLogoEle.height = 18;
+    objectEle.appendChild(objectLogoEle);
+
+    const objectTitleEle = document.createElement("div");
+    objectTitleEle.classList.add("object-item__title");
+    objectTitleEle.textContent = mesh.name; // Use the mesh name
+    objectEle.appendChild(objectTitleEle);
+
+    const objectCopyEle = document.createElement("img");
+    objectCopyEle.id = `copy-${mesh.uuid}`
+    objectCopyEle.src = "./copy.svg";
+    objectCopyEle.width = 18;
+    objectCopyEle.height = 18;
+    objectCopyEle.style.visibility = "hidden"; // Start hidden
+    objectEle.appendChild(objectCopyEle);
+    objectCopyEle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      handleCopyMesh(mesh);
+    });
+
+
+    const objectTrashEle = document.createElement("img");
+    objectTrashEle.id = `trash-${mesh.uuid}`
+    objectTrashEle.src = "./trash.svg";
+    objectTrashEle.width = 18;
+    objectTrashEle.height = 18;
+    objectTrashEle.style.visibility = "hidden"; // Start hidden
+    objectEle.appendChild(objectTrashEle);
+    objectTrashEle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      handleRemoveMesh(mesh);
+    });
+
+    objectListEle.appendChild(objectEle);
+  }
+// --- End Helper Function ---
+
+  // --- Helper Function to add mesh to internal list ---
+  function addObjectToInternalList(mesh) {
+    objectList.push({
+        id: mesh.uuid,
+        mesh,
+    });
+}
+// --- End Helper Function ---
+
+  // --- Function to handle copying the selected mesh ---
+  function handleCopyMesh(mesh) {
+    // 1. Clone the mesh
+    const clonedMesh = mesh.clone();
+
+    // 2. Clone the material (important for independent appearance)
+    if (mesh.material) {
+        if (Array.isArray(mesh.material)) {
+            clonedMesh.material = mesh.material.map(m => m.clone());
+        } else {
+            clonedMesh.material = mesh.material.clone();
+        }
+    }
+    // Geometry is typically shared by default by clone(), which is often desired for performance.
+    // If independent geometry modification is needed later, uncomment the next line:
+    // clonedMesh.geometry = selectedMesh.geometry.clone();
+
+    // 3. Assign a new name
+    clonedMesh.name = `${mesh.name} (Copy)`;
+
+    // 4. Offset the position slightly
+    const offset = new THREE.Vector3(0.5, 0, 0.5); // Offset diagonally
+    clonedMesh.position.add(offset);
+
+    // 5. Add to scene
+    scene.add(clonedMesh);
+
+    // 6. Add to internal list and UI list
+    addObjectToInternalList(clonedMesh)
+    addObjectToUIList(clonedMesh);
+
+    // 7. Select the newly created clone
+    handleSelectMesh(clonedMesh); // This will handle deselection of the old one, UI updates, and rendering
+  }
+  // --- End Copy Function ---
 }
 
 main();
