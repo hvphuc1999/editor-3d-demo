@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { TransformControls } from "three/addons/controls/TransformControls.js";
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { BOX_TYPES } from "./constants";
 
 function main() {
@@ -501,6 +502,90 @@ function main() {
     scene.remove(directionalLight);
     render();
   }
+
+  const downloadEle = document.getElementById('download')
+  downloadEle.addEventListener('click', exportSceneToGLB)
+
+  // --- Helper function to trigger file download ---
+  function save( blob, filename ) {
+    const link = document.createElement( 'a' );
+    link.style.display = 'none';
+    document.body.appendChild( link ); // Required for Firefox
+
+    link.href = URL.createObjectURL( blob );
+    link.download = filename;
+    link.click();
+
+    URL.revokeObjectURL( link.href ); // Free up memory
+    document.body.removeChild( link ); // Clean up
+  }
+
+  function saveArrayBuffer( buffer, filename ) {
+    save( new Blob( [ buffer ], { type: 'application/octet-stream' } ), filename );
+  }
+  // --- End Helper Function ---
+
+
+  // --- Export Function ---
+  function exportSceneToGLB() {
+    const exporter = new GLTFExporter();
+    const meshesToExport = objectList.map(item => item.mesh);
+
+    if (meshesToExport.length === 0) {
+      alert("Scene is empty. Add some objects to export.");
+      return;
+    }
+
+    // Options for the exporter
+    const options = {
+      trs: true,  // Include position, rotation, scale
+      binary: true, // Export as GLB
+      // onlyVisible: false, // Export all meshes in the input array, regardless of visibility
+      // truncateDrawRange: true, // Useful if draw range has been modified
+      embedImages: true, // If you were using textures, this would embed them
+      // animations: group.animations, // Include animations if any
+      // forceIndices: false, // Whether to force geometry indexing
+      // forcePowerPreference: "default", // "high-performance", "low-power"
+    };
+
+    // Deselect object and remove transform controls temporarily for cleaner export
+    const previouslySelectedMesh = transformControl.object;
+    if (previouslySelectedMesh) {
+        transformControl.detach();
+        scene.remove(transformControl);
+        render(); // Update scene visually
+    }
+
+
+    // Parse the meshes
+    exporter.parse(
+      meshesToExport, // Pass the array of meshes directly
+      function (result) {
+        // `result` will be an ArrayBuffer containing the GLB data because `binary: true`
+        saveArrayBuffer(result, 'scene.glb');
+
+        // Re-attach transform controls if an object was selected before export
+        if (previouslySelectedMesh) {
+            transformControl.attach(previouslySelectedMesh);
+            scene.add(transformControl);
+            render(); // Update scene visually
+        }
+      },
+      function (error) {
+        console.error('An error occurred during GLB export:', error);
+        alert('Export failed. Check console for details.');
+
+        // Re-attach transform controls even if export failed
+        if (previouslySelectedMesh) {
+            transformControl.attach(previouslySelectedMesh);
+            scene.add(transformControl);
+            render(); // Update scene visually
+        }
+      },
+      options
+    );
+  }
+  // --- End Export Function ---
 }
 
 main();
