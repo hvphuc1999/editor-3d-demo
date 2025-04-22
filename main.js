@@ -644,7 +644,7 @@ function main() {
 
     // Create animation clips for each mesh
     const animationClips = [];
-    meshesToExport.forEach((mesh, index) => {
+    meshesToExport.forEach((mesh) => {
       // Check if mesh has animation properties
       if (mesh.userData.animationType) {
         const duration = 2; // 2 seconds duration for smoother animation
@@ -678,7 +678,7 @@ function main() {
             ))
           ];
           tracks.push(new THREE.QuaternionKeyframeTrack(
-            `.meshes[${index}].quaternion`,
+            `${mesh.name}.quaternion`,
             times,
             rotationValues.map(q => [q.x, q.y, q.z, q.w]).flat()
           ));
@@ -694,7 +694,7 @@ function main() {
             originalY
           ];
           tracks.push(new THREE.NumberKeyframeTrack(
-            `.meshes[${index}].position[y]`,
+            `${mesh.name}.position[y]`,
             times,
             positionValues
           ));
