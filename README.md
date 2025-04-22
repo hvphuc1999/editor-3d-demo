@@ -17,8 +17,8 @@ A web-based 3D editor application built with Threejs. This project allows users 
 
 1.  **Clone the repository:**
     ```bash
-    git clone <your-repository-url>
-    cd <repository-folder-name>
+    git clone git@github.com:hvphuc1999/editor-3d-demo.git
+    cd editor-3d-demo
     ```
 2.  **Install dependencies:**
     ```bash
