@@ -386,6 +386,128 @@ function main() {
     colorContainer.appendChild(colorInput);
     objectPropertiesEle.appendChild(colorContainer); // Add color picker container
     /* ===================== */
+
+    const animateTitle = document.createElement('div');
+    animateTitle.classList.add('object-property');
+    animateTitle.textContent = 'Effect';
+    animateTitle.style = 'font-size: 1.25rem';
+
+    const animateContainer = document.createElement('div');
+    animateContainer.style = "display: flex; align-items: center; column-gap: 1rem; padding: 0 1rem 1rem 1rem"
+
+    let animationFrameId = null;
+    // let originalTransform = {
+    //   position: { x: mesh.position.x, y: mesh.position.y, z: mesh.position.z },
+    //   rotation: { x: mesh.rotation.x, y: mesh.rotation.y, z: mesh.rotation.z },
+    //   scale: { x: mesh.scale.x, y: mesh.scale.y, z: mesh.scale.z },
+    // }
+
+    const clearAnimation = () => {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
+      // Reset position when animation stops
+      // mesh.position.x = originalTransform.position.x;
+      // mesh.position.y = originalTransform.position.y;
+      // mesh.position.z = originalTransform.position.z;
+
+      // mesh.rotation.x = originalTransform.rotation.x;
+      // mesh.rotation.y = originalTransform.rotation.y;
+      // mesh.rotation.z = originalTransform.rotation.z;
+
+      // mesh.scale.x = originalTransform.scale.x;
+      // mesh.scale.y = originalTransform.scale.y;
+      // mesh.scale.z = originalTransform.scale.z;
+      render();
+    }
+
+    const animateList = [
+      {
+        name: 'None',
+        onChange: (checkbox) => {
+          let isAnimating = false;
+
+          checkbox.addEventListener('change', (e) => {
+            isAnimating = e.target.checked;
+            if (!isAnimating || !animationFrameId) return;
+            clearAnimation();
+          });
+        }
+      },
+      {
+        name: 'Rotate',
+        onChange: (checkbox) => {
+          let isAnimating = false;
+
+          checkbox.addEventListener('change', (e) => {
+            isAnimating = e.target.checked;
+            if (animationFrameId) clearAnimation();
+            if (isAnimating) {
+              function animate() {
+                if (!isAnimating) return;
+
+                mesh.rotation.x += 0.01;
+                mesh.rotation.y += 0.01;
+                
+                render();
+                animationFrameId = requestAnimationFrame(animate);
+              }
+              animate();
+            }
+          });
+        }
+      },
+      {
+        name: 'Balloon',
+        onChange: (checkbox) => {
+          let isAnimating = false;
+          checkbox.addEventListener('change', (e) => {
+            isAnimating = e.target.checked;
+            let originalY = mesh.position.y;
+
+            if (animationFrameId) clearAnimation();
+
+            if (isAnimating) {
+              function animate() {
+                if (!isAnimating) return;
+                
+                // Balloon-like floating animation
+                const time = Date.now() * 0.001; // Convert to seconds
+                const floatHeight = Math.sin(time) * 1; // Oscillate between -1 and 1
+                mesh.position.y = originalY + floatHeight;
+                
+                render();
+                animationFrameId = requestAnimationFrame(animate);
+              }
+              animate();
+            }
+          });
+        }
+      }
+    ]
+
+    const renderAnimate = ({
+      name = '',
+      onChange = () => {},
+    }) => {
+      const animateLabel = document.createElement('label');
+      animateLabel.textContent = name;
+      animateLabel.style = 'font-size: 1rem;'
+      
+      const animateCheckbox = document.createElement('input');
+      animateCheckbox.type = 'radio';
+      animateCheckbox.name = 'effect_group';
+      animateCheckbox.style = 'margin: 0';
+      
+      onChange(animateCheckbox)
+      
+      animateContainer.appendChild(animateLabel);
+      animateContainer.appendChild(animateCheckbox);
+    }
+
+    animateList.forEach(renderAnimate)
+
+    objectPropertiesEle.appendChild(animateTitle);
+    objectPropertiesEle.appendChild(animateContainer);
   }
 
   function removePropertiesSection() {
