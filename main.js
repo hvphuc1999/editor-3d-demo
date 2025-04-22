@@ -430,8 +430,10 @@ function main() {
             isAnimating = e.target.checked;
             if (!isAnimating || !animationFrameId) return;
             clearAnimation();
+            mesh.userData.animationType = null;
           });
-        }
+        },
+        defaultChecked: true
       },
       {
         name: 'Rotate',
@@ -442,6 +444,7 @@ function main() {
             isAnimating = e.target.checked;
             if (animationFrameId) clearAnimation();
             if (isAnimating) {
+              mesh.userData.animationType = 'Rotate';
               function animate() {
                 if (!isAnimating) return;
 
@@ -452,6 +455,8 @@ function main() {
                 animationFrameId = requestAnimationFrame(animate);
               }
               animate();
+            } else {
+              mesh.userData.animationType = null;
             }
           });
         }
@@ -467,18 +472,22 @@ function main() {
             if (animationFrameId) clearAnimation();
 
             if (isAnimating) {
+              mesh.userData.animationType = 'Balloon';
               function animate() {
                 if (!isAnimating) return;
                 
                 // Balloon-like floating animation
                 const time = Date.now() * 0.001; // Convert to seconds
-                const floatHeight = Math.sin(time) * 1; // Oscillate between -1 and 1
+                const amplitude = 0.5; // Maximum height of the floating motion
+                const floatHeight = Math.sin(time) * amplitude; // Oscillate between -amplitude and amplitude
                 mesh.position.y = originalY + floatHeight;
                 
                 render();
                 animationFrameId = requestAnimationFrame(animate);
               }
               animate();
+            } else {
+              mesh.userData.animationType = null;
             }
           });
         }
@@ -488,6 +497,7 @@ function main() {
     const renderAnimate = ({
       name = '',
       onChange = () => {},
+      defaultChecked = false
     }) => {
       const animateLabel = document.createElement('label');
       animateLabel.textContent = name;
@@ -497,6 +507,7 @@ function main() {
       animateCheckbox.type = 'radio';
       animateCheckbox.name = 'effect_group';
       animateCheckbox.style = 'margin: 0';
+      animateCheckbox.defaultChecked = defaultChecked;
       
       onChange(animateCheckbox)
       
@@ -631,16 +642,80 @@ function main() {
       return;
     }
 
+    // Create animation clips for each mesh
+    const animationClips = [];
+    meshesToExport.forEach((mesh, index) => {
+      // Check if mesh has animation properties
+      if (mesh.userData.animationType) {
+        const duration = 2; // 2 seconds duration for smoother animation
+        const times = [0, 0.5, 1, 1.5, 2];
+        
+        // Create tracks based on animation type
+        let tracks = [];
+        if (mesh.userData.animationType === 'Rotate') {
+          // Rotation animation - continuous rotation
+          const rotationValues = [
+            new THREE.Quaternion().setFromEuler(mesh.rotation),
+            new THREE.Quaternion().setFromEuler(new THREE.Euler(
+              mesh.rotation.x + Math.PI/2,
+              mesh.rotation.y + Math.PI/2,
+              mesh.rotation.z
+            )),
+            new THREE.Quaternion().setFromEuler(new THREE.Euler(
+              mesh.rotation.x + Math.PI,
+              mesh.rotation.y + Math.PI,
+              mesh.rotation.z
+            )),
+            new THREE.Quaternion().setFromEuler(new THREE.Euler(
+              mesh.rotation.x + Math.PI * 1.5,
+              mesh.rotation.y + Math.PI * 1.5,
+              mesh.rotation.z
+            )),
+            new THREE.Quaternion().setFromEuler(new THREE.Euler(
+              mesh.rotation.x + Math.PI * 2,
+              mesh.rotation.y + Math.PI * 2,
+              mesh.rotation.z
+            ))
+          ];
+          tracks.push(new THREE.QuaternionKeyframeTrack(
+            `.meshes[${index}].quaternion`,
+            times,
+            rotationValues.map(q => [q.x, q.y, q.z, q.w]).flat()
+          ));
+        } else if (mesh.userData.animationType === 'Balloon') {
+          // Position animation (balloon effect)
+          const originalY = mesh.position.y;
+          const amplitude = 0.5;
+          const positionValues = [
+            originalY,
+            originalY + amplitude,
+            originalY,
+            originalY - amplitude,
+            originalY
+          ];
+          tracks.push(new THREE.NumberKeyframeTrack(
+            `.meshes[${index}].position[y]`,
+            times,
+            positionValues
+          ));
+        }
+
+        if (tracks.length > 0) {
+          const clip = new THREE.AnimationClip(mesh.name, duration, tracks);
+          clip.loop = THREE.LoopRepeat;
+          animationClips.push(clip);
+        }
+      }
+    });
+
     // Options for the exporter
     const options = {
-      trs: true,  // Include position, rotation, scale
-      binary: true, // Export as GLB
-      // onlyVisible: false, // Export all meshes in the input array, regardless of visibility
-      // truncateDrawRange: true, // Useful if draw range has been modified
-      embedImages: true, // If you were using textures, this would embed them
-      // animations: group.animations, // Include animations if any
-      // forceIndices: false, // Whether to force geometry indexing
-      // forcePowerPreference: "default", // "high-performance", "low-power"
+      trs: true,
+      binary: true,
+      embedImages: true,
+      animations: animationClips,
+      onlyVisible: false,
+      includeCustomExtensions: true
     };
 
     // Deselect object and remove transform controls temporarily for cleaner export
@@ -650,7 +725,6 @@ function main() {
         scene.remove(transformControl);
         render(); // Update scene visually
     }
-
 
     // Parse the meshes
     exporter.parse(
@@ -662,7 +736,6 @@ function main() {
         // Re-attach transform controls if an object was selected before export
         if (previouslySelectedMesh) {
             transformControl.attach(previouslySelectedMesh);
-            scene.add(transformControl);
             render(); // Update scene visually
         }
       },
@@ -673,7 +746,6 @@ function main() {
         // Re-attach transform controls even if export failed
         if (previouslySelectedMesh) {
             transformControl.attach(previouslySelectedMesh);
-            scene.add(transformControl);
             render(); // Update scene visually
         }
       },
