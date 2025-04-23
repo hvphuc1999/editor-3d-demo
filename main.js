@@ -651,23 +651,52 @@ function main() {
       return;
     }
 
-    // Create animation clips for each mesh
-    const animationClips = [];
+    // Create a temporary scene for export
+    const exportScene = new THREE.Scene();
+    exportScene.background = scene.background;
+    
+    // Add all meshes to the export scene
+    meshesToExport.forEach(mesh => {
+      const meshClone = mesh.clone();
+      exportScene.add(meshClone);
+    });
+
+    // Add light if it exists
+    if (directionalLight) {
+      const lightClone = directionalLight.clone();
+      // Create a target for the light and make it a child
+      const target = new THREE.Object3D();
+      target.position.set(0, 0, -1);
+      lightClone.add(target);
+      lightClone.target = target;
+      exportScene.add(lightClone);
+    }
+
+    // Create a single animation clip that contains all animations
+    const duration = 5; // 5 seconds duration for animation
+    const times = [0, 0.625, 1.25, 1.875, 2.5, 3.125, 3.75, 4.375, 5]; // Keyframes spread over 5 seconds
+    const tracks = [];
+
     meshesToExport.forEach((mesh) => {
       // Check if mesh has animation properties
       if (mesh.userData.animationType) {
-        const duration = 2; // 2 seconds duration for smoother animation
-        const times = [0, 0.5, 1, 1.5, 2];
-        
-        // Create tracks based on animation type
-        let tracks = [];
         if (mesh.userData.animationType === 'Rotate') {
-          // Rotation animation - continuous rotation
+          // Rotation animation - continuous rotation with more steps
           const rotationValues = [
             new THREE.Quaternion().setFromEuler(mesh.rotation),
             new THREE.Quaternion().setFromEuler(new THREE.Euler(
+              mesh.rotation.x + Math.PI/4,
+              mesh.rotation.y + Math.PI/4,
+              mesh.rotation.z
+            )),
+            new THREE.Quaternion().setFromEuler(new THREE.Euler(
               mesh.rotation.x + Math.PI/2,
               mesh.rotation.y + Math.PI/2,
+              mesh.rotation.z
+            )),
+            new THREE.Quaternion().setFromEuler(new THREE.Euler(
+              mesh.rotation.x + Math.PI * 0.75,
+              mesh.rotation.y + Math.PI * 0.75,
               mesh.rotation.z
             )),
             new THREE.Quaternion().setFromEuler(new THREE.Euler(
@@ -676,8 +705,18 @@ function main() {
               mesh.rotation.z
             )),
             new THREE.Quaternion().setFromEuler(new THREE.Euler(
+              mesh.rotation.x + Math.PI * 1.25,
+              mesh.rotation.y + Math.PI * 1.25,
+              mesh.rotation.z
+            )),
+            new THREE.Quaternion().setFromEuler(new THREE.Euler(
               mesh.rotation.x + Math.PI * 1.5,
               mesh.rotation.y + Math.PI * 1.5,
+              mesh.rotation.z
+            )),
+            new THREE.Quaternion().setFromEuler(new THREE.Euler(
+              mesh.rotation.x + Math.PI * 1.75,
+              mesh.rotation.y + Math.PI * 1.75,
               mesh.rotation.z
             )),
             new THREE.Quaternion().setFromEuler(new THREE.Euler(
@@ -692,71 +731,55 @@ function main() {
             rotationValues.map(q => [q.x, q.y, q.z, q.w]).flat()
           ));
         } else if (mesh.userData.animationType === 'Balloon') {
-          // Position animation (balloon effect)
-          const originalY = mesh.position.y;
+          // Position animation (balloon effect) with Vector3
+          const originalPosition = mesh.position.clone();
           const amplitude = 0.5;
-          const positionValues = [
-            originalY,
-            originalY + amplitude,
-            originalY,
-            originalY - amplitude,
-            originalY
-          ];
-          tracks.push(new THREE.NumberKeyframeTrack(
-            `${mesh.name}.position[y]`,
-            times,
-            positionValues
-          ));
-        }
+          
+          // Create position values for each keyframe
+          const positionValues = times.map(t => {
+            const progress = t / duration;
+            const yOffset = Math.sin(progress * Math.PI * 2) * amplitude;
+            return new THREE.Vector3(
+              originalPosition.x,
+              originalPosition.y + yOffset,
+              originalPosition.z
+            );
+          });
 
-        if (tracks.length > 0) {
-          const clip = new THREE.AnimationClip(mesh.name, duration, tracks);
-          clip.loop = THREE.LoopRepeat;
-          animationClips.push(clip);
+          // Create position track
+          tracks.push(new THREE.VectorKeyframeTrack(
+            `${mesh.name}.position`,
+            times,
+            positionValues.map(v => [v.x, v.y, v.z]).flat()
+          ));
         }
       }
     });
+
+    // Create a single animation clip with all tracks
+    const animationClip = new THREE.AnimationClip('animations', duration, tracks);
+    animationClip.loop = THREE.LoopRepeat;
 
     // Options for the exporter
     const options = {
       trs: true,
       binary: true,
       embedImages: true,
-      animations: animationClips,
+      animations: [animationClip],
       onlyVisible: false,
       includeCustomExtensions: true
     };
 
-    // Deselect object and remove transform controls temporarily for cleaner export
-    const previouslySelectedMesh = transformControl.object;
-    if (previouslySelectedMesh) {
-        transformControl.detach();
-        scene.remove(transformControl);
-        render(); // Update scene visually
-    }
-
-    // Parse the meshes
+    // Parse the scene
     exporter.parse(
-      meshesToExport, // Pass the array of meshes directly
+      exportScene,
       function (result) {
         // `result` will be an ArrayBuffer containing the GLB data because `binary: true`
         saveArrayBuffer(result, 'scene.glb');
-
-        // Re-attach transform controls if an object was selected before export
-        if (previouslySelectedMesh) {
-            transformControl.attach(previouslySelectedMesh);
-            render(); // Update scene visually
-        }
       },
       function (error) {
         console.error('An error occurred during GLB export:', error);
         alert('Export failed. Check console for details.');
-
-        // Re-attach transform controls even if export failed
-        if (previouslySelectedMesh) {
-            transformControl.attach(previouslySelectedMesh);
-            render(); // Update scene visually
-        }
       },
       options
     );
