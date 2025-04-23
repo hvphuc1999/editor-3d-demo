@@ -11,7 +11,7 @@ function main() {
   const rendererHeight = rendererEle.offsetHeight;
   let scene, camera, orbitControl, transformControl, raycaster, mouse, directionalLight;
   let objectList = [];
-  let isLightOn = false;
+  let isLightOn = true;
   let animationFrameIdList = null;
 
   init();
@@ -90,6 +90,8 @@ function main() {
     renderer.domElement.addEventListener('click', onCanvasClick, false);
 
     window.addEventListener("resize", onWindowResize);
+
+    if (isLightOn) handleTurnOnLight();
   }
 
   function render() {
