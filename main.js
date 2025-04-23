@@ -12,6 +12,7 @@ function main() {
   let scene, camera, orbitControl, transformControl, raycaster, mouse, directionalLight;
   let objectList = [];
   let isLightOn = false;
+  let animationFrameIdList = null;
 
   init();
   render();
@@ -395,15 +396,17 @@ function main() {
     const animateContainer = document.createElement('div');
     animateContainer.style = "display: flex; align-items: center; column-gap: 1rem; padding: 0 1rem 1rem 1rem"
 
-    let animationFrameId = null;
+    let animationFrameId;
     // let originalTransform = {
     //   position: { x: mesh.position.x, y: mesh.position.y, z: mesh.position.z },
     //   rotation: { x: mesh.rotation.x, y: mesh.rotation.y, z: mesh.rotation.z },
     //   scale: { x: mesh.scale.x, y: mesh.scale.y, z: mesh.scale.z },
     // }
 
-    const clearAnimation = () => {
-      cancelAnimationFrame(animationFrameId);
+    const clearAnimation = (selectedMesh) => {
+      if (!selectedMesh) return;
+      const id = animationFrameIdList?.[`${selectedMesh.uuid}`]
+      cancelAnimationFrame(id);
       animationFrameId = null;
       // Reset position when animation stops
       // mesh.position.x = originalTransform.position.x;
@@ -428,12 +431,12 @@ function main() {
 
           checkbox.addEventListener('change', (e) => {
             isAnimating = e.target.checked;
-            if (!isAnimating || !animationFrameId) return;
-            clearAnimation();
+            if (!isAnimating) return;
+            clearAnimation(mesh);
             mesh.userData.animationType = null;
           });
         },
-        defaultChecked: true
+        defaultChecked: !mesh.userData.animationType
       },
       {
         name: 'Rotate',
@@ -442,24 +445,26 @@ function main() {
 
           checkbox.addEventListener('change', (e) => {
             isAnimating = e.target.checked;
-            if (animationFrameId) clearAnimation();
+            clearAnimation(mesh);
             if (isAnimating) {
               mesh.userData.animationType = 'Rotate';
               function animate() {
-                if (!isAnimating) return;
 
                 mesh.rotation.x += 0.01;
                 mesh.rotation.y += 0.01;
                 
                 render();
                 animationFrameId = requestAnimationFrame(animate);
+                animationFrameIdList = {
+                  ...animationFrameIdList,
+                  [`${mesh.uuid}`]: animationFrameId
+                }
               }
               animate();
-            } else {
-              mesh.userData.animationType = null;
             }
           });
-        }
+        },
+        defaultChecked: mesh.userData.animationType === 'Rotate'
       },
       {
         name: 'Balloon',
@@ -469,12 +474,11 @@ function main() {
             isAnimating = e.target.checked;
             let originalY = mesh.position.y;
 
-            if (animationFrameId) clearAnimation();
+            clearAnimation(mesh);
 
             if (isAnimating) {
               mesh.userData.animationType = 'Balloon';
               function animate() {
-                if (!isAnimating) return;
                 
                 // Balloon-like floating animation
                 const time = Date.now() * 0.001; // Convert to seconds
@@ -484,13 +488,16 @@ function main() {
                 
                 render();
                 animationFrameId = requestAnimationFrame(animate);
+                animationFrameIdList = {
+                  ...animationFrameIdList,
+                  [`${mesh.uuid}`]: animationFrameId
+                }
               }
               animate();
-            } else {
-              mesh.userData.animationType = null;
             }
           });
-        }
+        },
+        defaultChecked: mesh.userData.animationType === 'Balloon'
       }
     ]
 
