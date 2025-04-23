@@ -502,7 +502,6 @@ function main() {
               obj.userData.animationType = 'Rotate';
               function animate() {
 
-                obj.rotation.x += 0.01;
                 obj.rotation.y += 0.01;
                 
                 render();
@@ -696,20 +695,18 @@ function main() {
     const exporter = new GLTFExporter();
     const meshesToExport = objectList.map(item => item.mesh);
 
-    if (meshesToExport.length === 0) {
-      alert("Scene is empty. Add some objects to export.");
-      return;
-    }
-
     // Create a temporary scene for export
     const exportScene = new THREE.Scene();
     exportScene.background = scene.background;
+
+    const carModelClone = carModel.clone();
     
     // Add all meshes to the export scene
     meshesToExport.forEach(mesh => {
       const meshClone = mesh.clone();
       exportScene.add(meshClone);
     });
+    exportScene.add(carModelClone)
 
     // Add light if it exists
     if (directionalLight) {
@@ -727,62 +724,62 @@ function main() {
     const times = [0, 0.625, 1.25, 1.875, 2.5, 3.125, 3.75, 4.375, 5]; // Keyframes spread over 5 seconds
     const tracks = [];
 
-    meshesToExport.forEach((mesh) => {
+    const addTrackByType = (obj) => {
       // Check if mesh has animation properties
-      if (mesh.userData.animationType) {
-        if (mesh.userData.animationType === 'Rotate') {
+      if (obj.userData.animationType) {
+        if (obj.userData.animationType === 'Rotate') {
           // Rotation animation - continuous rotation with more steps
           const rotationValues = [
-            new THREE.Quaternion().setFromEuler(mesh.rotation),
+            new THREE.Quaternion().setFromEuler(obj.rotation),
             new THREE.Quaternion().setFromEuler(new THREE.Euler(
-              mesh.rotation.x + Math.PI/4,
-              mesh.rotation.y + Math.PI/4,
-              mesh.rotation.z
+              obj.rotation.x,
+              obj.rotation.y + Math.PI/4,
+              obj.rotation.z
             )),
             new THREE.Quaternion().setFromEuler(new THREE.Euler(
-              mesh.rotation.x + Math.PI/2,
-              mesh.rotation.y + Math.PI/2,
-              mesh.rotation.z
+              obj.rotation.x,
+              obj.rotation.y + Math.PI/2,
+              obj.rotation.z
             )),
             new THREE.Quaternion().setFromEuler(new THREE.Euler(
-              mesh.rotation.x + Math.PI * 0.75,
-              mesh.rotation.y + Math.PI * 0.75,
-              mesh.rotation.z
+              obj.rotation.x,
+              obj.rotation.y + Math.PI * 0.75,
+              obj.rotation.z
             )),
             new THREE.Quaternion().setFromEuler(new THREE.Euler(
-              mesh.rotation.x + Math.PI,
-              mesh.rotation.y + Math.PI,
-              mesh.rotation.z
+              obj.rotation.x,
+              obj.rotation.y + Math.PI,
+              obj.rotation.z
             )),
             new THREE.Quaternion().setFromEuler(new THREE.Euler(
-              mesh.rotation.x + Math.PI * 1.25,
-              mesh.rotation.y + Math.PI * 1.25,
-              mesh.rotation.z
+              obj.rotation.x,
+              obj.rotation.y + Math.PI * 1.25,
+              obj.rotation.z
             )),
             new THREE.Quaternion().setFromEuler(new THREE.Euler(
-              mesh.rotation.x + Math.PI * 1.5,
-              mesh.rotation.y + Math.PI * 1.5,
-              mesh.rotation.z
+              obj.rotation.x,
+              obj.rotation.y + Math.PI * 1.5,
+              obj.rotation.z
             )),
             new THREE.Quaternion().setFromEuler(new THREE.Euler(
-              mesh.rotation.x + Math.PI * 1.75,
-              mesh.rotation.y + Math.PI * 1.75,
-              mesh.rotation.z
+              obj.rotation.x,
+              obj.rotation.y + Math.PI * 1.75,
+              obj.rotation.z
             )),
             new THREE.Quaternion().setFromEuler(new THREE.Euler(
-              mesh.rotation.x + Math.PI * 2,
-              mesh.rotation.y + Math.PI * 2,
-              mesh.rotation.z
+              obj.rotation.x,
+              obj.rotation.y + Math.PI * 2,
+              obj.rotation.z
             ))
           ];
           tracks.push(new THREE.QuaternionKeyframeTrack(
-            `${mesh.name}.quaternion`,
+            `${obj.name}.quaternion`,
             times,
             rotationValues.map(q => [q.x, q.y, q.z, q.w]).flat()
           ));
-        } else if (mesh.userData.animationType === 'Balloon') {
+        } else if (obj.userData.animationType === 'Balloon') {
           // Position animation (balloon effect) with Vector3
-          const originalPosition = mesh.position.clone();
+          const originalPosition = obj.position.clone();
           const amplitude = 0.5;
           
           // Create position values for each keyframe
@@ -798,12 +795,18 @@ function main() {
 
           // Create position track
           tracks.push(new THREE.VectorKeyframeTrack(
-            `${mesh.name}.position`,
+            `${obj.name}.position`,
             times,
             positionValues.map(v => [v.x, v.y, v.z]).flat()
           ));
         }
       }
+    }
+
+    addTrackByType(carModelClone)
+
+    meshesToExport.forEach((mesh) => {
+      addTrackByType(mesh)
     });
 
     // Create a single animation clip with all tracks
