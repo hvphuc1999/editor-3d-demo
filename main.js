@@ -2,6 +2,8 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { TransformControls } from "three/addons/controls/TransformControls.js";
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { BOX_TYPES } from "./constants";
 
 function main() {
@@ -13,6 +15,12 @@ function main() {
   let objectList = [];
   let isLightOn = true;
   let animationFrameIdList = null;
+  let modalProperties = {
+    material: {
+      body: null
+    }
+  }
+  let carModel;
 
   init();
   render();
@@ -42,6 +50,8 @@ function main() {
 
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 0.85;
 
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0xeeeeff);
@@ -92,6 +102,8 @@ function main() {
     window.addEventListener("resize", onWindowResize);
 
     if (isLightOn) handleTurnOnLight();
+
+    loadModel();
   }
 
   function render() {
@@ -112,21 +124,61 @@ function main() {
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-
     raycaster.setFromCamera(mouse, camera);
 
-    const meshesToCheck = objectList.map(item => item.mesh); // Get only the mesh objects
-    const intersects = raycaster.intersectObjects(meshesToCheck, false); // `false` means don't check children
+    // Check for car model first
+    if (carModel) {
+        const carIntersects = raycaster.intersectObject(carModel, true);
+        if (carIntersects.length > 0) {
+            handleSelectModal(carModel);
+            return;
+        }
+    }
+
+    // Then check other meshes
+    const meshesToCheck = objectList.map(item => item.mesh);
+    const intersects = raycaster.intersectObjects(meshesToCheck, false);
 
     if (intersects.length > 0) {
-      const intersectedObject = intersects[0].object;
-
-      const htmlElementId = intersectedObject.uuid;
-      const targetElement = document.getElementById(htmlElementId);
-      if (targetElement) targetElement.click();
+        const intersectedObject = intersects[0].object;
+        const htmlElementId = intersectedObject.uuid;
+        const targetElement = document.getElementById(htmlElementId);
+        if (targetElement) targetElement.click();
     } else {
-      // handleUnselectOfCurrentSelectedMesh();
+        handleUnselectOfCurrentSelectedMesh();
     }
+  }
+
+  function loadModel() {
+    // Load Ferrari model
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
+
+    const loader = new GLTFLoader();
+    loader.setDRACOLoader(dracoLoader);
+
+    // Materials
+    modalProperties.material.body = new THREE.MeshPhysicalMaterial({
+        color: 0xff0000,
+        metalness: 1.0,
+        roughness: 0.5,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.03
+    });
+
+    loader.load('./ferrari.glb', function (gltf) {
+        carModel = gltf.scene.children[0];
+        carModel.name = 'Car'
+        
+        // Apply materials
+        carModel.getObjectByName('body').material = modalProperties.material.body;
+
+        scene.add(carModel);
+
+        addObjectToUIList(carModel, 'modal');
+
+        render();
+    });
   }
 
   function createMesh(type) {
@@ -268,7 +320,7 @@ function main() {
     renderPropertiesSection(mesh)
   }
 
-  function renderPropertiesSection(mesh) {
+  function renderPropertiesSection(obj, type = 'mesh') {
     const objectPropertiesEle = document.querySelector('.object-properties')
 
     /* Transform property */
@@ -347,12 +399,12 @@ function main() {
         const axisInputEle = document.createElement('input');
         axisInputEle.id = inputId;
         axisInputEle.type = 'number';
-        axisInputEle.value = mesh?.[`${type}`].x;
+        axisInputEle.value = obj?.[`${type}`].x;
         axisInputEle.onchange = (e) => {
           const value = e.target.value;
-          if (axisName.toLowerCase() === 'x') mesh.scale.set(value, mesh?.[`${type}`].y, mesh?.[`${type}`].z)
-          if (axisName.toLowerCase() === 'y') mesh.scale.set(mesh?.[`${type}`].x, value, mesh?.[`${type}`].z)
-          if (axisName.toLowerCase() === 'z') mesh.scale.set(mesh?.[`${type}`].x, mesh?.[`${type}`].y, value)
+          if (axisName.toLowerCase() === 'x') obj.scale.set(value, obj?.[`${type}`].y, obj?.[`${type}`].z)
+          if (axisName.toLowerCase() === 'y') obj.scale.set(obj?.[`${type}`].x, value, obj?.[`${type}`].z)
+          if (axisName.toLowerCase() === 'z') obj.scale.set(obj?.[`${type}`].x, obj?.[`${type}`].y, value)
           render()
         }
         axisContainerEle.appendChild(axisEle);
@@ -378,13 +430,11 @@ function main() {
 
     const colorInput = document.createElement('input');
     colorInput.type = 'color';
-    colorInput.id = 'meshColorPicker';
-    colorInput.value = `#${mesh.material.color.getHexString()}`;
+    colorInput.value = type === 'mesh' ? `#${obj.material.color.getHexString()}` : `#${modalProperties.material.body.color.getHexString()}`;
     colorInput.addEventListener('input', (event) => {
-        if (mesh.material && mesh.material.color) {
-            mesh.material.color.set(event.target.value);
-            render();
-        }
+        if (obj.material && obj.material.color && type === 'mesh') obj.material.color.set(event.target.value)
+        if (type === 'modal') modalProperties.material.body.color.set(event.target.value);
+        render();
     });
     colorContainer.appendChild(colorInput);
     objectPropertiesEle.appendChild(colorContainer); // Add color picker container
@@ -434,11 +484,11 @@ function main() {
           checkbox.addEventListener('change', (e) => {
             isAnimating = e.target.checked;
             if (!isAnimating) return;
-            clearAnimation(mesh);
-            mesh.userData.animationType = null;
+            clearAnimation(obj);
+            obj.userData.animationType = null;
           });
         },
-        defaultChecked: !mesh.userData.animationType
+        defaultChecked: !obj.userData.animationType
       },
       {
         name: 'Rotate',
@@ -447,26 +497,26 @@ function main() {
 
           checkbox.addEventListener('change', (e) => {
             isAnimating = e.target.checked;
-            clearAnimation(mesh);
+            clearAnimation(obj);
             if (isAnimating) {
-              mesh.userData.animationType = 'Rotate';
+              obj.userData.animationType = 'Rotate';
               function animate() {
 
-                mesh.rotation.x += 0.01;
-                mesh.rotation.y += 0.01;
+                obj.rotation.x += 0.01;
+                obj.rotation.y += 0.01;
                 
                 render();
                 animationFrameId = requestAnimationFrame(animate);
                 animationFrameIdList = {
                   ...animationFrameIdList,
-                  [`${mesh.uuid}`]: animationFrameId
+                  [`${obj.uuid}`]: animationFrameId
                 }
               }
               animate();
             }
           });
         },
-        defaultChecked: mesh.userData.animationType === 'Rotate'
+        defaultChecked: obj.userData.animationType === 'Rotate'
       },
       {
         name: 'Balloon',
@@ -474,32 +524,32 @@ function main() {
           let isAnimating = false;
           checkbox.addEventListener('change', (e) => {
             isAnimating = e.target.checked;
-            let originalY = mesh.position.y;
+            let originalY = obj.position.y;
 
-            clearAnimation(mesh);
+            clearAnimation(obj);
 
             if (isAnimating) {
-              mesh.userData.animationType = 'Balloon';
+              obj.userData.animationType = 'Balloon';
               function animate() {
                 
                 // Balloon-like floating animation
                 const time = Date.now() * 0.001; // Convert to seconds
                 const amplitude = 0.5; // Maximum height of the floating motion
                 const floatHeight = Math.sin(time) * amplitude; // Oscillate between -amplitude and amplitude
-                mesh.position.y = originalY + floatHeight;
+                obj.position.y = originalY + floatHeight;
                 
                 render();
                 animationFrameId = requestAnimationFrame(animate);
                 animationFrameIdList = {
                   ...animationFrameIdList,
-                  [`${mesh.uuid}`]: animationFrameId
+                  [`${obj.uuid}`]: animationFrameId
                 }
               }
               animate();
             }
           });
         },
-        defaultChecked: mesh.userData.animationType === 'Balloon'
+        defaultChecked: obj.userData.animationType === 'Balloon'
       }
     ]
 
@@ -787,8 +837,8 @@ function main() {
   // --- End Export Function ---
 
   // --- Helper Function to add item to the UI list ---
-  function addObjectToUIList(mesh) {
-    const meshId = mesh.uuid;
+  function addObjectToUIList(obj, type = 'mesh') {
+    const meshId = obj.uuid;
     const objectListEle = document.querySelector(".object-list");
     const objectEle = document.createElement("div");
     objectEle.classList.add("object-item");
@@ -796,7 +846,8 @@ function main() {
 
     objectEle.addEventListener("click", () => {
       if (!objectEle.classList.contains('object-item--selected')) {
-          handleSelectMesh(mesh);
+        if (type === 'mesh') handleSelectMesh(obj);
+        if (type === 'modal') handleSelectModal(obj);
       }
     });
 
@@ -808,11 +859,11 @@ function main() {
 
     const objectTitleEle = document.createElement("div");
     objectTitleEle.classList.add("object-item__title");
-    objectTitleEle.textContent = mesh.name; // Use the mesh name
+    objectTitleEle.textContent = obj.name; // Use the mesh name
     objectEle.appendChild(objectTitleEle);
 
     const objectCopyEle = document.createElement("img");
-    objectCopyEle.id = `copy-${mesh.uuid}`
+    objectCopyEle.id = `copy-${obj.uuid}`
     objectCopyEle.src = "./copy.svg";
     objectCopyEle.width = 18;
     objectCopyEle.height = 18;
@@ -820,12 +871,12 @@ function main() {
     objectEle.appendChild(objectCopyEle);
     objectCopyEle.addEventListener("click", (e) => {
       e.stopPropagation();
-      handleCopyMesh(mesh);
+      handleCopyMesh(obj);
     });
 
 
     const objectTrashEle = document.createElement("img");
-    objectTrashEle.id = `trash-${mesh.uuid}`
+    objectTrashEle.id = `trash-${obj.uuid}`
     objectTrashEle.src = "./trash.svg";
     objectTrashEle.width = 18;
     objectTrashEle.height = 18;
@@ -833,7 +884,7 @@ function main() {
     objectEle.appendChild(objectTrashEle);
     objectTrashEle.addEventListener("click", (e) => {
       e.stopPropagation();
-      handleRemoveMesh(mesh);
+      handleRemoveMesh(obj);
     });
 
     objectListEle.appendChild(objectEle);
@@ -884,6 +935,24 @@ function main() {
     handleSelectMesh(clonedMesh); // This will handle deselection of the old one, UI updates, and rendering
   }
   // --- End Copy Function ---
+
+  function handleSelectModal(modal) {
+    if (!modal) return;
+
+    handleUnselectOfCurrentSelectedMesh();
+
+    const objectEle = document.getElementById(modal.uuid);
+    objectEle.classList.add("object-item--selected");
+
+    /* Add transform control */
+    transformControl.attach(modal);
+    const gizmo = transformControl.getHelper();
+    scene.add(gizmo);
+    render();
+    /* ===================== */
+
+    renderPropertiesSection(modal, 'modal')
+  }
 }
 
 main();
