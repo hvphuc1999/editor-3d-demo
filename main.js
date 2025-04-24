@@ -250,12 +250,20 @@ function main() {
     const copy = document.getElementById(`copy-${currentSelectedObjectEle.id}`);
     if (copy) copy.style = 'visibility: hidden';
     const currentSelectedObject = objectList.find(item => item.id === currentSelectedObjectEle.id);
+    const isSelectedModel = carModel.uuid === currentSelectedObjectEle.id;
     if (currentSelectedObject) {
       const gizmo = transformControl.getHelper();
       scene.remove(gizmo);
       transformControl.detach(currentSelectedObject.mesh)
       transformControl.setMode('translate')
     }
+    if (isSelectedModel) {
+      const gizmo = transformControl.getHelper();
+      scene.remove(gizmo);
+      transformControl.detach(carModel)
+      transformControl.setMode('translate')
+    }
+
     removePropertiesSection();
     render();
   }
